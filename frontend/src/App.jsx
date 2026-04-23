@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Terminal, ShieldAlert } from 'lucide-react';
+
 import InputBox from './components/InputBox';
 import ScorePanel from './components/ScorePanel';
 import IssuesPanel from './components/IssuesPanel';
@@ -10,7 +11,16 @@ import FeedbackPanel from './components/FeedbackPanel';
 import ABInputBox from './components/ABInputBox';
 import PromptHistoryPanel from './components/PromptHistoryPanel';
 import ApiStatusPanel from './components/ApiStatusPanel';
-import { analyzePrompt, optimizePrompt, compareModels, abTestPrompts, submitFeedback, getPromptHistory, savePromptVersion } from './api/client';
+
+import {
+  analyzePrompt,
+  optimizePrompt,
+  compareModels,
+  abTestPrompts,
+  submitFeedback,
+  getPromptHistory,
+  savePromptVersion
+} from './api/client';
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -25,15 +35,19 @@ function App() {
   // 🌙 THEME STATE
   const [theme, setTheme] = useState("dark");
 
+  // Apply theme to body
   useEffect(() => {
-    document.body.className = theme;
+    document.body.classList.remove("light", "dark");
+    document.body.classList.add(theme);
   }, [theme]);
 
+  // Load saved theme
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved) setTheme(saved);
   }, []);
 
+  // Save theme
   useEffect(() => {
     localStorage.setItem("theme", theme);
   }, [theme]);
@@ -42,14 +56,18 @@ function App() {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
+  // ---------------- API FUNCTIONS ----------------
+
   const handleAnalyze = async (promptText) => {
     setLoading(true);
     setEvaluation(null);
     setOptimization(null);
     setComparison(null);
     setPromptHistory([]);
+
     try {
       setCurrentPrompt(promptText);
+
       const evalData = await analyzePrompt(promptText);
       setEvaluation(evalData);
 
@@ -62,7 +80,7 @@ function App() {
       const history = await getPromptHistory(promptText);
       setPromptHistory(history || []);
     } catch (error) {
-      console.error("Failed to analyze prompt:", error);
+      console.error(error);
       alert("Backend not running!");
     } finally {
       setLoading(false);
@@ -72,12 +90,18 @@ function App() {
   const handleABTest = async (promptA, promptB, expectedKeywords, expectedFormat, idealLength) => {
     setLoading(true);
     setAbResult(null);
+
     try {
-      const result = await abTestPrompts(promptA, promptB, expectedKeywords, expectedFormat, idealLength);
+      const result = await abTestPrompts(
+        promptA,
+        promptB,
+        expectedKeywords,
+        expectedFormat,
+        idealLength
+      );
       setAbResult(result);
     } catch (error) {
-      console.error('AB test failed:', error);
-      alert('A/B test failed');
+      alert("A/B test failed");
     } finally {
       setLoading(false);
     }
@@ -85,26 +109,34 @@ function App() {
 
   const handleFeedback = async (feedback, score = null, comment = null) => {
     if (!evaluation) return;
+
     try {
-      const result = await submitFeedback(evaluation.original_prompt, feedback, score, comment);
-      setFeedbackSent(result.success ? 'Thanks!' : 'Failed');
-    } catch (error) {
-      alert('Feedback error');
+      const result = await submitFeedback(
+        evaluation.original_prompt,
+        feedback,
+        score,
+        comment
+      );
+
+      setFeedbackSent(result.success ? "Thanks!" : "Failed");
+    } catch {
+      alert("Feedback error");
     }
   };
 
   const handleSaveVersion = async (promptText, version) => {
-    if (!promptText) return;
     try {
       const result = await savePromptVersion(promptText, version);
       if (result.success) {
         const history = await getPromptHistory(promptText);
         setPromptHistory(history || []);
       }
-    } catch (error) {
-      alert('Save failed');
+    } catch {
+      alert("Save failed");
     }
   };
+
+  // ---------------- UI ----------------
 
   return (
     <div className="min-h-screen p-6 md:p-12 max-w-5xl mx-auto space-y-8">
@@ -118,10 +150,10 @@ function App() {
             <span className={theme === "dark" ? "gradient-text" : "light-gradient"}>
               Evaluator
             </span>
-            <Sparkles size={32} />
+            <Sparkles size={28} />
           </h1>
 
-          <p className="mt-2 text-lg">
+          <p className="mt-2 text-lg text-[var(--muted-foreground)]">
             Analyze and optimize your LLM prompts scientifically.
           </p>
         </div>
@@ -131,23 +163,37 @@ function App() {
 
           <button
             onClick={toggleTheme}
-            className="px-3 py-2 rounded-full text-sm bg-zinc-700 text-white hover:opacity-80"
+            className="px-4 py-2 rounded-full text-sm border"
+            style={{
+              background: "var(--card)",
+              color: "var(--foreground)",
+              borderColor: "var(--border)"
+            }}
           >
             {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
           </button>
 
-          <div className="bg-zinc-800 border rounded-full px-4 py-2 flex items-center gap-2 text-sm">
-            <Terminal size={14} className="text-green-400"/>
+          <div
+            className="rounded-full px-4 py-2 flex items-center gap-2 text-sm"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)"
+            }}
+          >
+            <Terminal size={14} className="text-green-500" />
             <span>System Online</span>
           </div>
-        </div>
 
+        </div>
       </header>
 
       {/* MAIN */}
       <div className="grid gap-8">
+
         <ApiStatusPanel />
+
         <InputBox onAnalyze={handleAnalyze} isLoading={loading} />
+
         <ABInputBox onRunABTest={handleABTest} isLoading={loading} />
 
         {loading && (
@@ -159,6 +205,7 @@ function App() {
 
         {!loading && evaluation && (
           <div className="space-y-8">
+
             <ScorePanel score={evaluation.score} metrics={evaluation.metrics} />
 
             <div className="grid md:grid-cols-2 gap-8">
@@ -166,6 +213,7 @@ function App() {
 
               <div className="p-6 border-l-4 border-blue-500">
                 <h2 className="text-xl font-bold mb-4">Prediction</h2>
+
                 <div className="p-5 flex justify-between">
                   <div>{evaluation.response_prediction.type}</div>
                   <div>
@@ -206,6 +254,7 @@ function App() {
           onSaveVersion={handleSaveVersion}
           currentPrompt={currentPrompt}
         />
+
       </div>
     </div>
   );
