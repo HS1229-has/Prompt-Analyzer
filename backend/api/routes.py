@@ -198,45 +198,50 @@ async def add_feedback(feedback: FeedbackRequest):
 
 @router.post("/compare", response_model=CompareResponse)
 def compare_endpoint(request: PromptRequest, background_tasks: BackgroundTasks):
+
     injection_result = detect_injection(request.prompt)
     is_malicious = injection_result["is_malicious"]
     reason = injection_result["reason"]
 
-    responses = get_real_llm_responses(request.prompt)
-    
+    # 🔹 Get responses
+    response_data = get_real_llm_responses(request.prompt)
+
+    results = response_data["results"]   # ✅ FIXED
+    best_model = response_data["best_model"]  # ✅ from backend
+
     final_responses = {}
     final_scores = {}
     final_latencies = {}
-    
-    best_model = "Groq"
-    best_score = -1
 
-    for model_name, data in responses.items():
-        response_text = data["text"]
+    # 🔹 Process each model
+    for model_name, data in results.items():
+
+        response_text = data.get("text", "")
         latency_ms = data.get("latency_ms", 0)
-        
+
         stats, _ = analyze_behavior(model_name, response_text)
-        
-        avg_score = ((stats["verbosity"] + stats["structure"] + stats["creativity"] + stats["safety"]) / 4) * 10
-        
+
+        avg_score = (
+            (stats["verbosity"] +
+             stats["structure"] +
+             stats["creativity"] +
+             stats["safety"]) / 4
+        ) * 10
+
         final_responses[model_name] = response_text
         final_scores[model_name] = round(avg_score, 1)
         final_latencies[model_name] = latency_ms
 
-        length = len(response_text)
-        lat = latency_ms if latency_ms > 0 else 1
-        efficiency_score = (length / lat) * 100
-        if efficiency_score > best_score and data.get("source") == "real":
-            best_score = efficiency_score
-            best_model = model_name
-
+    # 🔹 Regression logic (unchanged)
     regression_detected = False
     score_change = None
+
     if request.previous_score is not None:
         average_score = sum(final_scores.values()) / len(final_scores) if final_scores else 0
         score_change = round(average_score - request.previous_score, 1)
         regression_detected = average_score < request.previous_score
 
+    # 🔹 Logging
     background_tasks.add_task(
         log_interaction,
         prompt=request.prompt,
@@ -246,14 +251,15 @@ def compare_endpoint(request: PromptRequest, background_tasks: BackgroundTasks):
         is_malicious=is_malicious
     )
 
+    # 🔹 Final response
     return CompareResponse(
         is_malicious=is_malicious,
         reason=reason,
         responses=final_responses,
         scores=final_scores,
         latency=final_latencies,
-        best_model=best_model
-        , regression_detected=regression_detected
-        , previous_score=request.previous_score
-        , score_change=score_change
+        best_model=best_model,  # ✅ CORRECT SOURCE
+        regression_detected=regression_detected,
+        previous_score=request.previous_score,
+        score_change=score_change
     )
