@@ -63,13 +63,28 @@ def _call_huggingface(prompt: str):
     latency_ms = round((time.time() - start) * 1000)
     return resp.choices[0].message.content.strip(), latency_ms
 
+def evaluate_response(text: str):
+    """
+    Simple heuristic scoring (0–10)
+    """
+    score = 5
+
+    if len(text) > 100:
+        score += 1
+    if len(text) > 200:
+        score += 1
+    if "\n" in text:
+        score += 1
+    if any(word in text.lower() for word in ["dear", "regards", "subject"]):
+        score += 1
+    if len(text.split()) > 80:
+        score += 1
+
+    return min(score, 10)
 
 def get_real_llm_responses(prompt: str):
-    """
-    Calls real APIs for Groq, DeepSeek, HuggingFace.
-    Falls back to mock gracefully if key is missing or call fails.
-    """
     from engine.llm_mock import generate_mock_responses
+
     status = _check_status()
     mock_responses = generate_mock_responses(prompt)
 
@@ -80,14 +95,47 @@ def get_real_llm_responses(prompt: str):
         "HuggingFace": _call_huggingface,
     }
 
+    # 🔹 Collect responses
     for model_name, caller in callers.items():
         if status[model_name] == "connected":
             try:
                 text, ms = caller(prompt)
-                results[model_name] = {"text": text, "latency_ms": ms, "source": "real"}
-            except Exception as e:
-                results[model_name] = {"text": mock_responses[model_name], "latency_ms": 0, "source": "mock", "error": str(e)}
-        else:
-            results[model_name] = {"text": mock_responses[model_name], "latency_ms": 0, "source": "mock", "error": "API key not configured"}
+                score = evaluate_response(text)
 
-    return results
+                results[model_name] = {
+                    "text": text,
+                    "latency_ms": ms,
+                    "score": score,
+                    "source": "real"
+                }
+
+            except Exception as e:
+                results[model_name] = {
+                    "text": mock_responses[model_name],
+                    "latency_ms": 0,
+                    "score": 0,
+                    "source": "mock",
+                    "error": str(e)
+                }
+
+        else:
+            results[model_name] = {
+                "text": mock_responses[model_name],
+                "latency_ms": 0,
+                "score": 0,
+                "source": "mock",
+                "error": "API key not configured"
+            }
+
+    # 🔹 FIX: Correct Best Model Selection
+    def final_score(model):
+        score = results[model]["score"]
+        latency = results[model]["latency_ms"]
+        return score - (latency * 0.0005)
+
+    best_model = max(results, key=final_score)
+
+    return {
+        "results": results,
+        "best_model": best_model
+    }
