@@ -10,16 +10,20 @@ pipeline {
         }
 
         stage('Backend Validation') {
-            steps {
-                dir('backend') {
-                    sh '''
-                    pip3 install -r requirements.txt
-                    python3 -c "import fastapi; print('Backend OK')"
-                    '''
-                }
-            }
-        }
+    steps {
+        dir('backend') {
+            sh '''
+            python3 -m venv venv
 
+            . venv/bin/activate
+
+            pip install -r requirements.txt
+
+            python -c "import fastapi; print('Backend OK')"
+            '''
+        }
+    }
+}
         stage('Frontend Build') {
             steps {
                 dir('frontend') {
