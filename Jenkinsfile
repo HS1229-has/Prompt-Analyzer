@@ -13,8 +13,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                    pip install -r requirements.txt
-                    python -c "import fastapi; print('Backend OK')"
+                    pip3 install -r requirements.txt
+                    python3 -c "import fastapi; print('Backend OK')"
                     '''
                 }
             }
