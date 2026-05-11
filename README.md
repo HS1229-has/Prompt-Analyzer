@@ -17,7 +17,7 @@ The system helps developers and prompt engineers analyze prompt quality, compare
 - Evaluate prompt quality using deterministic metrics
 - Compare outputs from multiple AI models
 - Perform A/B prompt testing
-- Store prompt history and revisions
+- Store prompt history and revsions
 - Capture user feedback
 - Detect prompt injection attempts
 - Integrate DevOps workflows for deployment and quality monitoring
